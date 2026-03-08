@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>San Diego County Assessor — Property Tax Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1a2744;
+    --navy-mid: #243358;
+    --navy-light: #2e4070;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --cream: #faf8f4;
+    --warm-white: #ffffff;
+    --gray-100: #f4f2ee;
+    --gray-200: #e8e4dc;
+    --gray-400: #9e9890;
+    --gray-600: #6b6560;
+    --gray-800: #3d3a35;
+    --success: #2d7a4f;
+    --shadow-sm: 0 1px 3px rgba(26,39,68,0.08), 0 1px 2px rgba(26,39,68,0.05);
+    --shadow-md: 0 4px 16px rgba(26,39,68,0.10), 0 2px 6px rgba(26,39,68,0.06);
+    --shadow-lg: 0 12px 40px rgba(26,39,68,0.14), 0 4px 12px rgba(26,39,68,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    background: var(--cream);
+    color: var(--gray-800);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── API Key Modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(26,39,68,0.55);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-overlay.hidden { display: none; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--warm-white);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    padding: 36px 32px;
+    max-width: 440px;
+    width: 100%;
+    animation: slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-seal { font-size: 36px; text-align: center; margin-bottom: 12px; }
+  .modal h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    color: var(--navy);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .modal p {
+    font-size: 0.84rem;
+    color: var(--gray-600);
+    text-align: center;
+    line-height: 1.55;
+    margin-bottom: 24px;
+  }
+  .modal p a { color: var(--gold); text-decoration: none; border-bottom: 1px solid rgba(201,168,76,0.4); }
+  .modal-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--navy-mid);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .modal-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 10px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.9rem;
+    color: var(--gray-800);
+    background: var(--cream);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 8px;
+  }
+  .modal-input:focus {
+    border-color: var(--navy-light);
+    box-shadow: 0 0 0 3px rgba(46,64,112,0.1);
+    background: var(--warm-white);
+  }
+  .modal-hint {
+    font-size: 0.74rem;
+    color: var(--gray-400);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .modal-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.18s;
+  }
+  .modal-btn:hover { background: var(--navy-light); transform: translateY(-1px); }
+  .modal-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .modal-error {
+    font-size: 0.8rem;
+    color: #c0392b;
+    margin-top: 10px;
+    text-align: center;
+    display: none;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--navy);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    opacity: 0.9;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--gold), var(--gold-light), var(--gold), transparent);
+  }
+  .header-inner {
+    position: relative;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 28px 32px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .seal {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(201,168,76,0.35);
+    font-size: 22px;
+  }
+  .header-text h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.45rem;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+  .header-text p {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.62);
+    margin-top: 3px;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .status-pill {
+    background: rgba(45,122,79,0.25);
+    border: 1px solid rgba(45,122,79,0.45);
+    color: #7dd9a3;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #7dd9a3;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .key-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all 0.18s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .key-btn:hover { background: rgba(255,255,255,0.18); color: white; }
+
+  /* ── Main ── */
+  main {
+    flex: 1;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px 32px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .topic-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .topic-chip {
+    background: var(--warm-white);
+    border: 1px solid var(--gray-200);
+    color: var(--navy-mid);
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    box-shadow: var(--shadow-sm);
+    white-space: nowrap;
+  }
+  .topic-chip:hover {
+    background: var(--navy);
+    color: white;
+    border-color: var(--navy);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .chat-window {
+    background: var(--warm-white);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 500px;
+    animation: fadeUp 0.5s ease 0.1s both;
+  }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 28px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: 440px;
+    max-height: 520px;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+  .msg {
+    display: flex;
+    gap: 12px;
+    animation: msgIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .msg.user { flex-direction: row-reverse; }
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .msg.bot .avatar {
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: var(--gold-light);
+    font-size: 16px;
+  }
+  .msg.user .avatar {
+    background: var(--gray-100);
+    color: var(--gray-600);
+    font-size: 13px;
+  }
+  .bubble {
+    max-width: 78%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--gray-800);
+  }
+  .msg.bot .bubble {
+    background: var(--gray-100);
+    border-bottom-left-radius: 4px;
+    border: 1px solid var(--gray-200);
+  }
+  .msg.user .bubble {
+    background: var(--navy);
+    color: rgba(255,255,255,0.95);
+    border-bottom-right-radius: 4px;
+  }
+  .bubble strong { font-weight: 600; color: var(--navy); }
+  .msg.user .bubble strong { color: var(--gold-light); }
+  .bubble a {
+    color: var(--gold);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(201,168,76,0.4);
+    transition: border-color 0.15s;
+  }
+  .bubble a:hover { border-color: var(--gold); }
+  .source-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--gray-400);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .source-tag::before { content: '📋'; font-size: 10px; }
+
+  /* Streaming cursor */
+  .streaming-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--navy);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.8s step-end infinite;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .typing-indicator {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    animation: msgIn 0.3s ease both;
+  }
+  .typing-dots {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    padding: 14px 20px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .typing-dots span {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    animation: typing 1.2s ease-in-out infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+  .input-area {
+    padding: 16px 20px 20px;
+    border-top: 1px solid var(--gray-200);
+    background: var(--warm-white);
+  }
+  .input-row { display: flex; gap: 10px; align-items: flex-end; }
+  .input-wrap { flex: 1; position: relative; }
+  textarea {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--gray-800);
+    background: var(--cream);
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    min-height: 48px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  textarea:focus {
+    border-color: var(--navy-light);
+    box-shadow: 0 0 0 3px rgba(46,64,112,0.1);
+    background: var(--warm-white);
+  }
+  textarea::placeholder { color: var(--gray-400); }
+  .send-btn {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: var(--navy);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s ease;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
+  }
+  .send-btn:hover:not(:disabled) {
+    background: var(--navy-light);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .send-btn svg { width: 18px; height: 18px; fill: white; }
+  .input-hint {
+    font-size: 0.72rem;
+    color: var(--gray-400);
+    margin-top: 8px;
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+  .disclaimer {
+    background: linear-gradient(135deg, #fffbf0, #fff8e8);
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    line-height: 1.55;
+    margin-top: 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    animation: fadeUp 0.5s ease 0.2s both;
+  }
+  .disclaimer-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (max-width: 600px) {
+    main { padding: 16px; }
+    .header-inner { padding: 20px 16px; }
+    .bubble { max-width: 88%; }
+    .status-pill { display: none; }
+    .key-btn span { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- API Key Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-seal">⚖️</div>
+    <h2>Enter Your Anthropic API Key</h2>
+    <p>
+      This assistant uses the Claude API. Your key is stored only in this browser session and never sent anywhere except directly to Anthropic.<br><br>
+      Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+    </p>
+    <label class="modal-label" for="apiKeyInput">API Key</label>
+    <input
+      class="modal-input"
+      type="password"
+      id="apiKeyInput"
+      placeholder="sk-ant-..."
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <div class="modal-hint">Starts with <code>sk-ant-</code>. Stored in sessionStorage — cleared when you close the tab.</div>
+    <button class="modal-btn" id="modalSaveBtn" onclick="saveApiKey()">Start Chatting</button>
+    <div class="modal-error" id="modalError">Please enter a valid API key starting with sk-ant-</div>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="seal">⚖️</div>
+    <div class="header-text">
+      <h1>San Diego County Property Tax Assistant</h1>
+      <p>Assessor / Recorder / County Clerk</p>
+    </div>
+    <div class="header-actions">
+      <button class="key-btn" onclick="showKeyModal()" title="Change API key">
+        🔑 <span>API Key</span>
+      </button>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        Available
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="topic-bar" id="topicBar">
+    <button class="topic-chip" onclick="askTopic('How does Prop 13 work?')">Prop 13 Basics</button>
+    <button class="topic-chip" onclick="askTopic('What triggers a change in ownership reassessment?')">Change in Ownership</button>
+    <button class="topic-chip" onclick="askTopic('What counts as new construction for tax purposes?')">New Construction</button>
+    <button class="topic-chip" onclick="askTopic('Why did I get a supplemental tax bill?')">Supplemental Bills</button>
+    <button class="topic-chip" onclick="askTopic('How do I apply for the Homeowners Exemption?')">Homeowners Exemption</button>
+    <button class="topic-chip" onclick="askTopic('What is the Disabled Veterans Exemption?')">Veterans Exemption</button>
+    <button class="topic-chip" onclick="askTopic('When are property taxes due?')">Billing &amp; Payments</button>
+    <button class="topic-chip" onclick="askTopic('How do I appeal my assessed value?')">Appeals</button>
+  </div>
+  <div class="chat-window">
+    <div class="messages" id="messages">
+      <div class="msg bot">
+        <div class="avatar">⚖️</div>
+        <div class="bubble">
+          <strong>Hello! I'm the San Diego County Property Tax Assistant.</strong><br><br>
+          I can answer questions about Proposition 13, assessed values, exemptions, supplemental bills, payment deadlines, appeals, and more &mdash; using information from the California State Board of Equalization and the San Diego County Assessor's office.<br><br>
+          What can I help you with today?
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrap">
+          <textarea id="userInput" placeholder="Ask a property tax question..." rows="1"></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Enter to send &nbsp;&middot;&nbsp; Shift+Enter for new line</div>
+    </div>
+  </div>
+  <div class="disclaimer">
+    <span class="disclaimer-icon">ℹ️</span>
+    <span>This assistant provides general property tax information based on California law and San Diego County Assessor resources. It is not legal or tax advice. For questions about your specific property, contact the Assessor's office at <strong>(619) 236-3771</strong> or visit <strong>assessor.sandiegocounty.gov</strong>.</span>
+  </div>
+</main>
+
+<script>
+const KNOWLEDGE_BASE = "# Prop 13 Basics\n**Topic Prefix:** P13  \n**Source Documents:** BOE Publication 29 (California Property Tax \u2014 An Overview), BOE Publication 30 (Prop 13 Overview), CA Revenue and Taxation Code \u00a7\u00a7 51\u201375.6  \n**File Version:** 0.1  \n**Last Full Review:** 2025-07-01\n\n---\n\n## P13-001 What is Proposition 13?\n\n**Source:** [BOE Publication 29](https://www.boe.ca.gov/proptaxes/pdf/pub29.pdf)  \n**Last Verified:** 2025-07-01  \n\nProposition 13 is a California law passed by voters in 1978 that limits how much your property's taxable value can increase each year. When you buy a property or complete new construction, a \"base year value\" is set \u2014 and that value can only go up by a maximum of 2% per year, no matter what the real estate market does.\n\n> **If this doesn't answer your question:** Contact the San Diego County Assessor's office at (619) 236-3771 or visit [assessor.sandiegocounty.gov](https://assessor.sandiegocounty.gov). Our office hours are Monday\u2013Friday, 8:00 AM\u20135:00 PM.\n\n---\n\n## P13-002 What is a base year value?\n\nYour base year value is the taxable value assigned to your property when it is purchased or when new construction is completed. For a purchase, it is generally equal to the sale price. This becomes the starting point for your property taxes, and it can only increase by up to 2% per year going forward.\n\n---\n\n## P13-003 What is the property tax rate in San Diego County?\n\nThe base property tax rate in California is 1% of your property's assessed value. However, your total tax bill is typically higher than 1% because it also includes voter-approved charges such as school bonds, Mello-Roos special taxes, and other local assessments that vary depending on where your property is located.\n\n---\n\n## P13-004 Why did my assessed value go up this year?\n\nEach year, the county may increase your assessed value by up to 2% to account for inflation. If your value went up more than 2%, it may be because a Change in Ownership (CIO) or new construction triggered a reassessment to current market value. If you believe your assessed value is incorrect, you have the right to file an appeal.\n\n---\n\n## P13-005 What triggers a reassessment to full market value?\n\nTwo events cause the county to reassess your property at its current market value: a Change in Ownership (CIO) such as a sale, and the completion of new construction. Outside of these events, your assessed value can only increase by up to 2% per year under Prop 13.\n\n---\n\n## P13-006 Can my assessed value go down?\n\nYes. If the current market value of your property falls below your Prop 13 assessed value, the county is required to temporarily reduce your assessed value to reflect the lower market value. This is called a Proposition 8 reduction.\n\n---\n\n## P13-007 What is the difference between assessed value and market value?\n\nMarket value is what your property would sell for today. Assessed value is what the county uses to calculate your property taxes. Because of Prop 13's 2% annual cap, your assessed value may be significantly lower than your market value, especially if you have owned the property for many years.\n\n---\n\n## P13-008 I just bought a home. How will my property taxes be calculated?\n\nWhen you purchase a property, the purchase price becomes your new base year value. Your annual property tax will be approximately 1% of that value, plus any additional local charges. Going forward, your assessed value can only increase by up to 2% per year unless you make significant improvements or the property changes ownership again.\n\n---\n\n## P13-009 Does Prop 13 apply to all property types?\n\nYes. Proposition 13 applies to all real property in California: residential, commercial, industrial, and agricultural. The same base year value and 2% annual cap rules apply regardless of property type.\n\n---\n\n## P13-010 What is an enrolled value?\n\nThe enrolled value is the assessed value officially recorded on the assessment roll and used to calculate your tax bill. It is the lower of your Prop 13 factored base year value or the current market value of your property.\n\n# Change in Ownership (CIO)\n\n## CIO-001 What is a Change in Ownership?\n\nA Change in Ownership (CIO) is a transfer of property that causes the county to reassess it at its current market value. When a CIO occurs, the new market value becomes the property's new base year value, subject to the standard Prop 13 rules going forward.\n\n## CIO-002 What events trigger a Change in Ownership?\n\nThe most common events include: the sale or purchase of a property, a gift of real property, transferring property into or out of certain trusts, transferring into or out of an LLC or corporation, and inheriting property in some circumstances.\n\n## CIO-003 What does NOT trigger a Change in Ownership?\n\nExclusions include: transfers between spouses, transfers between registered domestic partners, certain transfers between parents and children, certain grandparent-grandchild transfers, transfers into a revocable living trust where the transferor remains the beneficiary, and transfers that simply change how title is held without changing actual ownership.\n\n## CIO-004 What is the Parent-Child Exclusion?\n\nUnder Proposition 19 (effective February 16, 2021), the exclusion applies only to a primary residence and only if the child uses it as their primary residence within one year of the transfer. The prior exclusion for rental or vacation properties was largely eliminated. A claim form (BOE-58-AH) must be filed.\n\n## CIO-005 What is the Grandparent-Grandchild Exclusion?\n\nSimilar to the Parent-Child Exclusion under Prop 19: applies only to a primary residence, only if all of the grandchild's parents who are children of the grandparent are deceased, and only if the grandchild uses the property as their primary residence within one year. Form BOE-58-AH must be filed.\n\n## CIO-006 Does transferring property to my spouse trigger a reassessment?\n\nNo. Transfers between spouses are excluded from reassessment, including transfers during marriage, as a result of divorce, or upon death. Registered domestic partners receive the same exclusion.\n\n## CIO-007 I inherited a property. Will it be reassessed?\n\nIt depends. Inheriting a property can trigger reassessment, but exclusions may apply. Under Prop 19, inheriting a primary residence from a parent or grandparent and using it as your own primary residence within one year may qualify for an exclusion. Other inherited properties such as rentals are generally reassessed.\n\n## CIO-008 Does transferring my property into a trust trigger a reassessment?\n\nTransferring into a revocable living trust where you remain the beneficiary does not trigger reassessment. Transferring into an irrevocable trust or one where someone else becomes the beneficial owner may trigger a CIO.\n\n## CIO-009 Does transferring property into an LLC trigger a reassessment?\n\nIt depends. If the same individuals continue to hold the same proportional interest, reassessment may be avoided. If control or more than 50% of the entity changes, a CIO may be triggered. This is a complex area; consult the Assessor's office before proceeding.\n\n## CIO-010 What is a Preliminary Change of Ownership Report (PCOR)?\n\nA PCOR (form BOE-502-A) must be filed with the county recorder whenever real property is transferred. It helps the Assessor determine whether reassessment applies. Failure to file may result in a $20 fee.\n\n## CIO-011 How do I file for a CIO exclusion?\n\nFile the appropriate claim form with the San Diego County Assessor's office. Common forms: BOE-58-AH (Parent-Child and Grandparent-Grandchild) and BOE-502-AH (Interspousal). Deadlines vary; some must be filed within three years of the transfer date.\n\n## CIO-012 What happens to my property taxes after a reassessment?\n\nThe Assessor determines the current market value as of the date of transfer. This becomes the new base year value. Your annual taxes will be approximately 1% of that new value plus local charges. You may also receive a supplemental assessment bill.\n\n# New Construction\n\n## NC-001 What counts as new construction for property tax purposes?\n\nNew construction includes any addition of a new structure, any expansion of an existing structure, and any conversion requiring a building permit. Only the newly constructed portion is reassessed; the rest retains its existing base year value.\n\n## NC-002 Do repairs and maintenance trigger reassessment?\n\nNo. Routine repairs such as replacing a roof with the same materials, repainting, or repairing plumbing do not trigger reassessment. Reassessment occurs only when work adds value, extends useful life beyond original condition, or converts the property to a new use.\n\n## NC-003 I remodeled my kitchen. Will my taxes go up?\n\nIt depends. Replacing existing fixtures with comparable materials is maintenance and does not trigger reassessment. Significant upgrades beyond restoring original condition, such as expanding the kitchen's footprint, may be treated as new construction.\n\n## NC-004 I added a room. How will my taxes be affected?\n\nAdding a room is new construction and triggers reassessment, but only for the new addition. The Assessor determines the market value of the new square footage as of completion. Your original home retains its existing base year value.\n\n## NC-005 When does a new construction reassessment take effect?\n\nReassessment takes effect when construction is substantially completed, not when the permit is issued. If completed before January 1, the new value appears on that year's roll. If completed after January 1, you may receive a supplemental assessment bill.\n\n## NC-006 Does pulling a building permit trigger reassessment?\n\nNo. The reassessment occurs when construction is substantially completed. However, the Assessor monitors permits to identify new construction activity.\n\n## NC-007 I built an ADU. Will my taxes go up?\n\nYes, in most cases. A newly constructed ADU is new construction and will be assessed at market value when substantially completed. Only the ADU is reassessed; your existing home and land retain their current assessed values.\n\n## NC-008 Are solar panels considered new construction?\n\nActive solar energy systems are currently excluded from new construction reassessment under California law (R&T Code section 73). This exclusion is set to expire January 1, 2027, unless extended.\n\n## NC-009 Will rebuilding after a disaster trigger reassessment?\n\nGenerally no, provided the rebuilt structure is comparable in size and use to the original. Only added portions beyond the original may be subject to reassessment.\n\n## NC-010 Are accessibility improvements excluded from reassessment?\n\nYes. Improvements made to accommodate a disabled person, including ramps, widened doorways, and modified bathrooms, are excluded from new construction reassessment.\n\n## NC-011 Are seismic safety improvements excluded?\n\nYes. Improvements made solely for seismic safety, such as bolting a home to its foundation or adding shear walls, are excluded from new construction reassessment.\n\n## NC-012 How will I know if I was reassessed for new construction?\n\nThe Assessor will mail a Notice of Supplemental Assessment or Notice of Assessed Value Change. If construction was completed mid-year, you will likely receive a supplemental tax bill. Appeal deadlines are time-sensitive.\n\n# Supplemental Assessments\n\n## SUP-001 What is a supplemental assessment?\n\nA supplemental assessment is issued when a property's taxable value increases mid-year due to a Change in Ownership or new construction completion. It captures the value increase between the event date and the end of the fiscal year, resulting in a separate supplemental tax bill.\n\n## SUP-002 Why did I receive a supplemental tax bill after buying my home?\n\nYour purchase price becomes your new base year value. If higher than the previous owner's assessed value, the county issues a supplemental assessment for the portion of the fiscal year following your purchase. It is a one-time bill, not collected through most mortgage impound accounts.\n\n## SUP-003 How is the supplemental assessment calculated?\n\nThe difference between the new and prior assessed values is prorated based on months remaining in the fiscal year (July 1 to June 30). An event in July results in a nearly full-year bill; an event in May results in a small one.\n\n## SUP-004 Can I receive more than one supplemental bill?\n\nYes. If your event occurs between January 1 and May 31, you may receive two bills: one for the remainder of the current fiscal year and one for the following year.\n\n## SUP-005 When will I receive my supplemental tax bill?\n\nThe Assessor first issues a Notice of Supplemental Assessment, then the Treasurer-Tax Collector issues the actual bill, typically several months after the event. New homeowners commonly receive their bill 6-12 months after closing.\n\n## SUP-006 Is a supplemental bill the same as my regular tax bill?\n\nNo. Your regular annual bill covers the full fiscal year based on the January 1 assessed value. The supplemental bill is a separate, one-time bill. Both must be paid. Lenders typically pay regular bills through impound accounts but may not pay supplemental bills.\n\n## SUP-007 What if my supplemental assessment seems too high?\n\nYou have the right to appeal. The deadline is 60 days from the date of the Notice of Supplemental Assessment. Contact the Assessment Appeals Board at (619) 531-5600.\n\n## SUP-008 I sold my property. Will there be a supplemental assessment?\n\nThe CIO triggers a supplemental assessment for the new owner. As the seller, you are generally not responsible for that bill. Review your closing documents to understand your tax proration obligations.\n\n## SUP-009 What if my new assessed value is lower than the previous owner's?\n\nYou will receive a negative supplemental assessment resulting in a refund rather than a bill. This can happen when a property sells below its assessed value.\n\n## SUP-010 Does a supplemental assessment affect my mortgage impound account?\n\nSupplemental bills are typically sent directly to the property owner and are not automatically paid by your lender. You are personally responsible for paying them on time.\n\n# Exemptions - Homeowners\n\n## EX-HO-001 What is the Homeowners Exemption?\n\nThe Homeowners Exemption reduces your assessed value by $7,000, saving most homeowners roughly $70 per year. It is available to any California homeowner who owns and occupies their home as their primary residence as of January 1. It renews automatically once filed.\n\n## EX-HO-002 How do I apply for the Homeowners Exemption?\n\nFile form BOE-266 with the San Diego County Assessor's office. Filing by February 15 gives the full exemption. Filing between February 16 and December 10 gives 80% for that year. The exemption renews automatically.\n\n## EX-HO-003 Who qualifies for the Homeowners Exemption?\n\nYou must own the property and occupy it as your primary residence as of January 1. It applies to one property only. Renters, landlords, and owners of vacation or investment properties do not qualify.\n\n## EX-HO-004 I just bought a home. Do I need to apply?\n\nYes. The exemption does not transfer automatically. You need to file a new claim (BOE-266). The Assessor may mail you a form after your purchase is recorded.\n\n## EX-HO-005 I moved out. Do I need to cancel the exemption?\n\nYes. If the property is no longer your primary residence, notify the Assessor's office to cancel. Continuing to receive the exemption on a property you no longer occupy can result in back taxes and penalties.\n\n## EX-HO-006 Can I claim the exemption if my property is in a trust?\n\nYes, in most cases. If held in a revocable living trust where you are the trustee and beneficiary and you occupy the property as your primary residence, you generally still qualify.\n\n## EX-HO-007 Can I receive both the Homeowners Exemption and the Disabled Veterans Exemption?\n\nNo. You may only receive one property tax exemption on your primary residence. The Disabled Veterans Exemption provides a significantly larger benefit, so eligible veterans should claim that instead.\n\n## EX-HO-008 What happens to the exemption if the owner passes away?\n\nThe exemption terminates. A surviving spouse who continues to occupy the property may re-apply. Anyone who inherits and occupies the property as their primary residence may also apply. A new claim form must be filed.\n\n# Exemptions - Basic Veterans\n\n## EX-VET-B-001 What is the Basic Veterans Exemption?\n\nThe Basic Veterans Exemption reduces your assessed value by $4,000 (approximately $40/year savings). It is available to veterans who served during a qualifying war period, honorably discharged, and their unmarried surviving spouses.\n\n## EX-VET-B-002 Who qualifies?\n\nVeterans honorably discharged who served during qualifying war periods (WWI, WWII, Korean War, Vietnam War, and others designated by California law), plus their unmarried surviving spouses.\n\n## EX-VET-B-003 How do I apply?\n\nFile form BOE-261 with the San Diego County Assessor's office along with your DD-214. File by February 15 for the full exemption. The exemption renews automatically.\n\n## EX-VET-B-004 Can I receive both Basic and Disabled Veterans exemptions?\n\nNot on the same property. If you qualify for the Disabled Veterans Exemption, claim that instead as it provides a much larger benefit. If you own multiple properties, you can apply the Basic Veterans Exemption to a different property.\n\n## EX-VET-B-005 I am a surviving spouse of a veteran. Do I qualify?\n\nYes, if you are the unmarried surviving spouse of a qualifying veteran. You must remain unmarried to retain eligibility.\n\n## EX-VET-B-006 Does the Basic Veterans Exemption apply to primary residence only?\n\nNo. Unlike the Homeowners Exemption, it can be applied to any real property you own in California. It can only be applied to one property at a time.\n\n# Exemptions - Disabled Veterans\n\n## EX-VET-DV-001 What is the Disabled Veterans Exemption?\n\nA significant property tax benefit for veterans with a service-connected disability or their surviving spouses. It comes in two tiers: a base exemption and a higher low-income exemption, both adjusted annually by the BOE.\n\n## EX-VET-DV-002 Who qualifies?\n\nVeterans honorably discharged with a 100% service-connected disability rating from the VA, or rated totally disabled. Veterans who are blind in both eyes or have lost use of two or more limbs also qualify. The property must be the veteran's primary residence.\n\n## EX-VET-DV-003 What is the difference between the base and low-income exemption?\n\nThe base exemption reduces assessed value by approximately $161,083 (recent years). The low-income exemption provides a higher reduction of approximately $241,627 for veterans below an income threshold. Both amounts are adjusted annually.\n\n## EX-VET-DV-004 How do I apply?\n\nFile form BOE-261-G with the San Diego County Assessor's office, along with your DD-214 and VA disability rating letter. For the low-income exemption, include income documentation. The exemption must be renewed annually by February 15.\n\n## EX-VET-DV-005 Does the Disabled Veterans Exemption need to be renewed every year?\n\nYes. Unlike the Homeowners Exemption, the Disabled Veterans Exemption requires annual renewal by February 15. The Assessor typically mails renewal forms in late fall.\n\n## EX-VET-DV-006 I am a surviving spouse. Do I still qualify?\n\nYes, if you are the unmarried surviving spouse and continue to own and occupy the property as your primary residence. Remarriage ends eligibility.\n\n## EX-VET-DV-007 My VA rating just changed to 100%. When can I apply?\n\nImmediately upon receiving your updated VA rating letter. New applicants may file any time; the exemption will be prorated. Filing by February 15 gives the full exemption for that tax year.\n\n## EX-VET-DV-008 Does the property need to be in my name?\n\nThe property must be owned by the veteran, their spouse, or held in a trust where the veteran or spouse is the beneficiary.\n\n## EX-VET-DV-009 What if my exemption was denied?\n\nYou have the right to appeal within 60 days of the denial notice. Contact the Assessor's office first at (619) 236-3771, as many denials can be resolved with additional documentation.\n\n## EX-VET-DV-010 Are there resources to help me apply?\n\nYes. Contact the San Diego County Assessor's office at (619) 236-3771, the County Veterans Services office at (858) 694-3222, or visit sdveterans.com.\n\n# Billing and Payments\n\n## BILL-001 When are property tax bills mailed?\n\nSan Diego County property tax bills are mailed in late October each year, covering the full fiscal year July 1 through June 30.\n\n## BILL-002 When are property taxes due?\n\nTwo installments: First installment due November 1, delinquent after December 10. Second installment due February 1, delinquent after April 10.\n\n## BILL-003 What happens if I miss a deadline?\n\nA 10% penalty is added. If the second installment is not paid by June 30, the property becomes tax-defaulted with an additional $33 redemption fee. After five years, the property may be subject to the county tax sale process.\n\n## BILL-004 How can I pay my property taxes?\n\nOnline at sdttc.com (free e-check, or credit/debit card with a convenience fee), by phone, by mail, or in person at 1600 Pacific Highway, Room 162, San Diego, CA 92101.\n\n## BILL-005 My lender pays my taxes. Do I need to do anything?\n\nVerify your lender paid. Supplemental tax bills are typically not paid through impound accounts and must be paid directly by you.\n\n## BILL-006 Can I pay in more than two installments?\n\nNo formal monthly payment plan exists for current-year taxes. If your property is tax-defaulted, you may be eligible for an installment payment plan to redeem it.\n\n## BILL-007 How do I find out how much I owe?\n\nLook up your balance online at sdttc.com using your parcel number, property address, or prior owner's name. You can also call (877) 829-4732.\n\n## BILL-008 I overpaid. How do I request a refund?\n\nContact the Treasurer-Tax Collector at (877) 829-4732 or visit sdttc.com. Refunds may also be issued automatically when a negative supplemental assessment is processed.\n\n## BILL-009 What is Mello-Roos?\n\nMello-Roos is a special tax for properties within a Community Facilities District (CFD), funding infrastructure like schools, roads, and parks. It appears as a separate line item on your bill and is not based on assessed value.\n\n## BILL-010 Can I get a penalty waived?\n\nOnly in very limited circumstances: documented medical emergency, natural disaster, or county error. Financial hardship alone is generally not sufficient. You must pay the full amount including penalty first, then submit a penalty cancellation request with documentation.\n\n# Assessment Appeals\n\n## APP-001 What is an assessment appeal?\n\nA formal process to challenge your assessed value. If you believe your assessed value exceeds your property's market value, you can appeal to the Assessment Appeals Board, an independent body separate from the Assessor.\n\n## APP-002 What are the grounds for appeal?\n\nMost commonly: assessed value exceeds fair market value as of the applicable date. You may also appeal improperly denied exemptions, incorrect new construction valuations, or supplemental assessments. You cannot appeal the tax rate or Mello-Roos charges.\n\n## APP-003 What are the filing deadlines?\n\nRegular roll: July 2 through November 30 of the assessment year. Supplemental assessments: 60 days from the Notice of Supplemental Assessment. Escape assessments: 60 days from notice.\n\n## APP-004 How do I file an appeal?\n\nSubmit an Application for Changed Assessment to the San Diego County Clerk of the Board of Supervisors. There is a filing fee. You must continue paying taxes on time during the appeal to avoid penalties.\n\n## APP-005 What evidence do I need?\n\nThe strongest evidence is comparable sales data supporting a lower market value. Also useful: recent independent appraisals, photographs documenting condition issues, and repair estimates for significant defects.\n\n## APP-006 What happens after I file?\n\nYour appeal will be scheduled for a hearing. The Assessor may contact you beforehand to discuss your case informally. Many appeals are resolved without a formal hearing. The process can take several months to over a year.\n\n## APP-007 Do I keep paying taxes during my appeal?\n\nYes. Filing an appeal does not suspend your payment obligation. If your appeal succeeds, you receive a refund for overpayments.\n\n## APP-008 Can I appeal without hiring a professional?\n\nYes. You can represent yourself, and many homeowners do so successfully for straightforward residential value disputes. For complex cases, professional representation may improve your chances.\n\n# Prop 8 Temporary Value Reductions\n\n## P8-001 What is a Proposition 8 reduction?\n\nIf your property's current market value falls below its Prop 13 factored base year value, the county must temporarily reduce your assessed value to the lower market value. This is a temporary, not permanent, reduction.\n\n## P8-002 How does the Assessor determine if I qualify?\n\nThe Assessor reviews all properties annually as of January 1, enrolling whichever value is lower. In broad market declines, reductions may be applied automatically. You can also request a review if you believe your property qualifies.\n\n## P8-003 How do I request a Prop 8 review?\n\nContact the Assessor's office at (619) 236-3771 to request an informal review. Gather evidence of current market value such as recent comparable sales before calling. You can also file a formal appeal.\n\n## P8-004 Will my taxes go back up when the market recovers?\n\nYes. A Prop 8 reduction is temporary. As the market recovers, your assessed value is restored up to the Prop 13 factored base year value, never above it.\n\n## P8-005 Can my assessed value increase by more than 2% after a Prop 8 reduction?\n\nYes. The 2% annual cap applies only at the factored base year value. During recovery from a Prop 8 reduction, your assessed value can increase by more than 2% per year until it returns to the factored base year value.\n\n## P8-006 I bought during a down market. How does Prop 8 affect me?\n\nYour purchase price becomes your new base year value. A Prop 8 reduction would only apply if the market later falls below your base year value adjusted for inflation.\n\n## P8-007 How will I know if I have a Prop 8 reduction?\n\nYour annual Notice of Assessed Value will show both your Prop 13 factored base year value and your enrolled value. If the enrolled value is lower, a Prop 8 reduction is in place. You can also check at assessor.sandiegocounty.gov.\n";
+
+const SYSTEM_PROMPT = `You are the San Diego County Property Tax Assistant -- a knowledgeable, friendly, and professional assistant that helps members of the public understand property taxes in San Diego County, California.
+Your knowledge base contains authoritative information from the California State Board of Equalization (BOE) and the San Diego County Assessor's office. You MUST ground all answers in this knowledge base.
+KNOWLEDGE BASE:
+${KNOWLEDGE_BASE}
+INSTRUCTIONS:
+- Answer questions in plain, friendly language. Avoid jargon -- if you must use a technical term, define it.
+- Be thorough but concise. Most answers should be 2-5 sentences. Complex topics may be longer.
+- Always cite the relevant topic code (e.g., P13-003) and source at the end of your answer in a brief line like: "Source: BOE Publication 29 - P13-003"
+- If a question is outside your knowledge base, say so clearly and direct the user to the Assessor's office at (619) 236-3771.
+- For questions requiring account-specific information, explain you cannot access individual records and direct them to the appropriate office.
+- Never speculate or make up information. If unsure, say so and escalate.
+- Keep a warm, patient, and helpful tone. Many users may be confused or stressed about their taxes.
+- Do not answer questions unrelated to San Diego County property taxes.`;
+
+const conversationHistory = [];
+let apiKey = sessionStorage.getItem('anthropic_key') || '';
+
+// ── API Key Modal ──────────────────────────────────────────
+function showKeyModal() {
+  const overlay = document.getElementById('modalOverlay');
+  const input = document.getElementById('apiKeyInput');
+  overlay.classList.remove('hidden');
+  input.value = '';
+  input.focus();
+  document.getElementById('modalError').style.display = 'none';
+}
+
+function saveApiKey() {
+  const input = document.getElementById('apiKeyInput');
+  const key = input.value.trim();
+  if (!key.startsWith('sk-ant-') || key.length < 20) {
+    document.getElementById('modalError').style.display = 'block';
+    input.focus();
+    return;
+  }
+  apiKey = key;
+  sessionStorage.setItem('anthropic_key', key);
+  document.getElementById('modalOverlay').classList.add('hidden');
+  document.getElementById('userInput').focus();
+}
+
+// Allow Enter in the modal input
+document.getElementById('apiKeyInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') saveApiKey();
+});
+
+// Show modal on load if no key
+if (!apiKey) showKeyModal();
+
+// ── Chat helpers ───────────────────────────────────────────
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+document.getElementById('userInput').addEventListener('input', function() {
+  autoResize(this);
+});
+document.getElementById('userInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+function askTopic(question) {
+  document.getElementById('userInput').value = question;
+  sendMessage();
+}
+
+function scrollToBottom() {
+  const messages = document.getElementById('messages');
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function addUserMessage(text) {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `
+    <div class="avatar">You</div>
+    <div class="bubble">${escapeHtml(text)}</div>
+  `;
+  messages.appendChild(div);
+  scrollToBottom();
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderBotContent(text) {
+  // Pull out "Source: ..." line if present
+  const sourceMatch = text.match(/Source:\s*(.+)$/m);
+  let main = text;
+  let sourceHTML = '';
+  if (sourceMatch) {
+    main = text.replace(sourceMatch[0], '').trim();
+    sourceHTML = `<div class="source-tag">${escapeHtml(sourceMatch[1])}</div>`;
+  }
+  main = main
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+  return main + sourceHTML;
+}
+
+// Creates a bot bubble and returns its inner content div for streaming
+function createBotBubble() {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `
+    <div class="avatar">⚖️</div>
+    <div class="bubble" id="streamingBubble"></div>
+  `;
+  messages.appendChild(div);
+  scrollToBottom();
+  return document.getElementById('streamingBubble');
+}
+
+function showTypingIndicator() {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'typing-indicator';
+  div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="avatar" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1a2744,#2e4070);display:flex;align-items:center;justify-content:center;font-size:16px;color:#e8c97a;flex-shrink:0;">⚖️</div>
+    <div class="typing-dots"><span></span><span></span><span></span></div>
+  `;
+  messages.appendChild(div);
+  scrollToBottom();
+}
+
+function hideTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function addErrorMessage(text) {
+  const messages = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `
+    <div class="avatar">⚖️</div>
+    <div class="bubble">${escapeHtml(text)}</div>
+  `;
+  messages.appendChild(div);
+  scrollToBottom();
+}
+
+// ── Main send logic (streaming) ────────────────────────────
+async function sendMessage() {
+  if (!apiKey) { showKeyModal(); return; }
+
+  const input = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const text = input.value.trim();
+  if (!text || sendBtn.disabled) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  addUserMessage(text);
+  conversationHistory.push({ role: 'user', content: text });
+
+  showTypingIndicator();
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: conversationHistory,
+        stream: true
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      hideTypingIndicator();
+      const status = response.status;
+      if (status === 401) {
+        addErrorMessage("Your API key was rejected. Please click \"API Key\" in the header to enter a valid key.");
+        sessionStorage.removeItem('anthropic_key');
+        apiKey = '';
+      } else if (status === 429) {
+        addErrorMessage("You've hit a rate limit. Please wait a moment and try again.");
+      } else {
+        addErrorMessage(`API error (${status}): ${err.error?.message || 'Unknown error'}. Please try again or contact the Assessor's office at (619) 236-3771.`);
+      }
+      conversationHistory.pop();
+      sendBtn.disabled = false;
+      return;
+    }
+
+    hideTypingIndicator();
+    const bubbleEl = createBotBubble();
+
+    // Stream SSE
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+            fullText += parsed.delta.text;
+            // Show streaming content with a blinking cursor
+            bubbleEl.innerHTML = renderBotContent(fullText) + '<span class="streaming-cursor"></span>';
+            scrollToBottom();
+          }
+        } catch { /* partial JSON chunk, skip */ }
+      }
+    }
+
+    // Finalize — remove cursor, render clean
+    bubbleEl.id = '';
+    bubbleEl.innerHTML = renderBotContent(fullText);
+    scrollToBottom();
+
+    conversationHistory.push({ role: 'assistant', content: fullText });
+
+  } catch (err) {
+    hideTypingIndicator();
+    addErrorMessage("I'm having trouble connecting right now. Please check your connection and try again, or contact the Assessor's office at (619) 236-3771.");
+    conversationHistory.pop();
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+</script>
+</body>
+</html>
